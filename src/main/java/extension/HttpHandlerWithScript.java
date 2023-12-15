@@ -62,28 +62,28 @@ public class HttpHandlerWithScript implements HttpHandler {
                     }
                 }
                 try {
-                    NodeRuntime nodeRuntime = V8Host.getNodeInstance().createV8Runtime();
+                    try (NodeRuntime nodeRuntime = loadLibrary(V8Host.getNodeInstance().createV8Runtime())) {
 
-                    nodeRuntime = loadLibrary(nodeRuntime);
-                    nodeRuntime.getGlobalObject().set("request_body", requestToBeSent.bodyToString());
-                    nodeRuntime.getExecutor("request_body = JSON.parse(request_body);").executeVoid();
-                    nodeRuntime.getExecutor(encryptionScript).executeVoid();
+                        nodeRuntime.getGlobalObject().set("request_body", requestToBeSent.bodyToString());
+                        nodeRuntime.getExecutor("request_body = JSON.parse(request_body);").executeVoid();
+                        nodeRuntime.getExecutor(encryptionScript).executeVoid();
 
-                    try {
-                        nodeRuntime.getExecutor("encrypted_request_body = JSON.stringify(encrypted_request_body);")
-                                .executeVoid();
+                        try {
+                            nodeRuntime.getExecutor("encrypted_request_body = JSON.stringify(encrypted_request_body);")
+                                    .executeVoid();
 
-                        String encryptedRequestBody = nodeRuntime.getGlobalObject().get("encrypted_request_body")
-                                .toString();
+                            String encryptedRequestBody = nodeRuntime.getGlobalObject().get("encrypted_request_body")
+                                    .toString();
 
-                        HttpRequest modifiedRequest = requestToBeSent.withBody(encryptedRequestBody);
+                            HttpRequest modifiedRequest = requestToBeSent.withBody(encryptedRequestBody);
 
-                        this.originalHttpRequest = modifiedRequest;
+                            this.originalHttpRequest = modifiedRequest;
 
-                        return RequestToBeSentAction.continueWith(modifiedRequest);
-                    } catch (Exception e) {
-                        this.api.logging().logToError(e.getMessage());
-                        return RequestToBeSentAction.continueWith(requestToBeSent);
+                            return RequestToBeSentAction.continueWith(modifiedRequest);
+                        } catch (Exception e) {
+                            this.api.logging().logToError(e.getMessage());
+                            return RequestToBeSentAction.continueWith(requestToBeSent);
+                        }
                     }
 
                 } catch (Exception e) {
@@ -102,25 +102,34 @@ public class HttpHandlerWithScript implements HttpHandler {
             if (!decryptionScript.isEmpty()) {
 
                 try {
-                    NodeRuntime nodeRuntime = V8Host.getNodeInstance().createV8Runtime();
+                    try (NodeRuntime nodeRuntime = loadLibrary(V8Host.getNodeInstance().createV8Runtime())) {
 
-                    nodeRuntime = loadLibrary(nodeRuntime);
-                    nodeRuntime.getGlobalObject().set("response_body", responseReceived.bodyToString().toString());
-                    nodeRuntime.getExecutor("response_body = JSON.parse(response_body);").executeVoid();
-                    nodeRuntime.getExecutor(decryptionScript).executeVoid();
+                        nodeRuntime.getGlobalObject().set("response_body", responseReceived.bodyToString().toString());
+                        nodeRuntime.getExecutor("response_body = JSON.parse(response_body);").executeVoid();
+                        nodeRuntime.getExecutor(decryptionScript).executeVoid();
 
-                    this.originalHttpResponse = responseReceived;
+                        this.originalHttpResponse = responseReceived;
 
-                    try {
-                        String decryptedResponseBody = nodeRuntime.getGlobalObject().get("decrypted_response_body")
-                                .toString();
-            
-                        HttpResponse modifiedResponse = responseReceived.withBody(decryptedResponseBody);
+                        try {
+                            String decryptedResponseBody = nodeRuntime.getGlobalObject().get("decrypted_response_body")
+                                    .toString();
 
-                        this.modifiedHttpResponse = modifiedResponse;
+                            HttpResponse modifiedResponse = responseReceived.withBody(decryptedResponseBody);
 
-                        if (this.inScopeCheckBox.isSelected()) {
-                            if (this.api.scope().isInScope(this.originalHttpRequest.url())) {
+                            this.modifiedHttpResponse = modifiedResponse;
+
+                            if (this.inScopeCheckBox.isSelected()) {
+                                if (this.api.scope().isInScope(this.originalHttpRequest.url())) {
+                                    LogEntry newLogEntry = new LogEntry(
+                                            logManager.getLogTableModel().getLogCount() + 1,
+                                            this.originalHttpRequest, this.originalHttpResponse,
+                                            this.modifiedHttpRequest,
+                                            this.modifiedHttpResponse);
+
+                                    logManager.addEntry(newLogEntry);
+                                    return ResponseReceivedAction.continueWith(modifiedResponse);
+                                }
+                            } else if (!this.inScopeCheckBox.isSelected()) {
                                 LogEntry newLogEntry = new LogEntry(
                                         logManager.getLogTableModel().getLogCount() + 1,
                                         this.originalHttpRequest, this.originalHttpResponse, this.modifiedHttpRequest,
@@ -129,18 +138,10 @@ public class HttpHandlerWithScript implements HttpHandler {
                                 logManager.addEntry(newLogEntry);
                                 return ResponseReceivedAction.continueWith(modifiedResponse);
                             }
-                        } else if (!this.inScopeCheckBox.isSelected()) {
-                            LogEntry newLogEntry = new LogEntry(
-                                    logManager.getLogTableModel().getLogCount() + 1,
-                                    this.originalHttpRequest, this.originalHttpResponse, this.modifiedHttpRequest,
-                                    this.modifiedHttpResponse);
-
-                            logManager.addEntry(newLogEntry);
-                            return ResponseReceivedAction.continueWith(modifiedResponse);
+                        } catch (Exception e) {
+                            this.api.logging().logToError(e.getMessage());
+                            return ResponseReceivedAction.continueWith(responseReceived);
                         }
-                    } catch (Exception e) {
-                        this.api.logging().logToError(e.getMessage());
-                        return ResponseReceivedAction.continueWith(responseReceived);
                     }
 
                 } catch (Exception e) {
