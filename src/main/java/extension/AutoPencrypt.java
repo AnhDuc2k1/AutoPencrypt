@@ -50,55 +50,54 @@ public class AutoPencrypt implements IBurpExtender, BurpExtension, IMessageEdito
 
   public static final int TEXT_HEIGHT = new JTextField().getPreferredSize().height;
   public static final Dimension buttonDimension = new Dimension(130, TEXT_HEIGHT);
-  public static final Dimension configurationPaneDimension = new Dimension(600, 300);
-  private static final Font defaultFont = new Font("SansSerif", Font.BOLD, 14);
+  public static final Dimension paneDimension = new Dimension(500, 100);
+  private static final Font defaultFont = new Font("Courier New", Font.BOLD, 14);
 
   private static JSplitPane mainTabbedPane;
-  private JTabbedPane tabs;
-
   private JSplitPane mainSplitPane;
-  private JSplitPane userInterfaceSplitPane;
+  private JTabbedPane viewSplitPane;
+  private JSplitPane actionSplitPane;
 
   private JPanel configurationPane;
   private JTabbedPane configurationTabbedPane;
 
   private JTextArea encryptionScript = new JTextArea(30, 100);
   private JTextArea decryptionScript = new JTextArea(30, 100);
-  private JToggleButton activatedButton = new JToggleButton("Enable Extension");
+  private JToggleButton enableButton = new JToggleButton("Enable Extension");
   private JButton clearLogButton = new JButton("Clear logs");
   private DefaultTableModel tableModel = new DefaultTableModel(new Object[] { "File Path" }, 0);
-  private JCheckBox isScopePreButton = new JCheckBox("In Scope Request");
+  private JCheckBox inScopeCheckBox = new JCheckBox("In Scope Request");
 
-  private JSplitPane originalRequestResponseSplitPane;
-  private JSplitPane modifiedRequestResponseSplitPane;
+  private JSplitPane encryptedRequestResponseSplitPane;
+  private JSplitPane decryptedRequestResponseSplitPane;
 
   private LogTable logTable;
   private static LogManager logManager;
 
-  private IMessageEditor originalRequestViewer;
-  private IMessageEditor originalResponseViewer;
-  private IMessageEditor modifiedRequestViewer;
-  private IMessageEditor modifiedResponseViewer;
+  private IMessageEditor encryptedRequestViewer;
+  private IMessageEditor encryptedResponseViewer;
+  private IMessageEditor decryptedRequestViewer;
+  private IMessageEditor decryptedResponseViewer;
 
-  private JPanel originalRequestPanel;
-  private JPanel originalResponsePanel;
-  private JPanel modifiedRequestPanel;
-  private JPanel modifiedResponsePanel;
+  private JPanel encryptedRequestPanel;
+  private JPanel encryptedResponsePanel;
+  private JPanel decryptedRequestPanel;
+  private JPanel decryptedResponsePanel;
 
-  byte[] originalRequest;
-  byte[] originalResponse;
-  byte[] modifiedRequest;
-  byte[] modifiedResponse;
+  byte[] encryptedRequest;
+  byte[] encryptedResponse;
+  byte[] decryptedRequest;
+  byte[] decryptedResponse;
 
-  private JLabel originalRequestLabel;
-  private JLabel originalResponseLabel;
-  private JLabel modifiedRequestLabel;
-  private JLabel modifiedResponseLabel;
+  private JLabel encryptedRequestLabel;
+  private JLabel encryptedResponseLabel;
+  private JLabel decryptedRequestLabel;
+  private JLabel decryptedResponseLabel;
 
-  private HttpRequest currentOriginalRequest;
-  private HttpResponse currentOriginalResponse;
-  private HttpRequest currentModifiedRequest;
-  private HttpResponse currentModifiedResponse;
+  private HttpRequest currentEncryptedRequest;
+  private HttpResponse currentEncryptedResponse;
+  private HttpRequest currentDecryptedRequest;
+  private HttpResponse currentDecryptedResponse;
 
   @Override
   public void registerExtenderCallbacks(final IBurpExtenderCallbacks callbacks) {
@@ -109,7 +108,6 @@ public class AutoPencrypt implements IBurpExtender, BurpExtension, IMessageEdito
     logTable = new LogTable(logManager.getLogTableModel());
 
     createUI();
-
     mainTabbedPane = mainSplitPane;
   }
 
@@ -119,7 +117,8 @@ public class AutoPencrypt implements IBurpExtender, BurpExtension, IMessageEdito
     this.montoyaApi.extension().setName("AutoPencrypt");
     api.userInterface().registerSuiteTab("AutoPencrypt", mainTabbedPane);
     montoyaApi.http().registerHttpHandler(createHandlerWithScript(api));
-    api.logging().logToOutput("AutoPencrypt Extension is loaded successful!\nVersion 1.1\nCreated by Tran Anh Duc-B19DCAT047\nD19AT-PTIT");
+    api.logging().logToOutput(
+        "AutoPencrypt Extension is loaded successful!\nVersion 1.1\nCreated by Tran Anh Duc-B19DCAT047\nD19AT-PTIT");
   }
 
   private void createUI() {
@@ -127,36 +126,36 @@ public class AutoPencrypt implements IBurpExtender, BurpExtension, IMessageEdito
 
     mainSplitPane = new JSplitPane(JSplitPane.VERTICAL_SPLIT);
 
-    originalRequestResponseSplitPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT);
-    modifiedRequestResponseSplitPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT);
+    encryptedRequestResponseSplitPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT);
+    decryptedRequestResponseSplitPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT);
 
     configurationTabbedPane = new JTabbedPane();
 
-    activatedButton.addChangeListener(e -> {
-      if (activatedButton.isSelected()) {
-        activatedButton.setText("Disable Extension");
+    enableButton.addChangeListener(e -> {
+      if (enableButton.isSelected()) {
+        enableButton.setText("Disable Extension");
       } else {
-        activatedButton.setText("Enable Extension");
+        enableButton.setText("Enable Extension");
       }
     });
 
     clearLogButton.addActionListener(e -> {
       logManager.clearLog();
 
-      originalRequest = null;
-      originalResponse = null;
-      modifiedRequest = null;
-      modifiedResponse = null;
+      encryptedRequest = null;
+      encryptedResponse = null;
+      decryptedRequest = null;
+      decryptedResponse = null;
 
-      currentOriginalRequest = null;
-      currentOriginalResponse = null;
-      currentModifiedRequest = null;
-      currentModifiedResponse = null;
+      currentEncryptedRequest = null;
+      currentEncryptedResponse = null;
+      currentDecryptedRequest = null;
+      currentDecryptedResponse = null;
     });
-    Dimension activatedDimension = new Dimension(150, TEXT_HEIGHT);
-    activatedButton.setPreferredSize(activatedDimension);
-    activatedButton.setMaximumSize(activatedDimension);
-    activatedButton.setMinimumSize(activatedDimension);
+    Dimension enableButtonDimension = new Dimension(150, TEXT_HEIGHT);
+    enableButton.setPreferredSize(enableButtonDimension);
+    enableButton.setMaximumSize(enableButtonDimension);
+    enableButton.setMinimumSize(enableButtonDimension);
 
     Dimension clearLogDimension = new Dimension(150, TEXT_HEIGHT);
     clearLogButton.setPreferredSize(clearLogDimension);
@@ -165,13 +164,13 @@ public class AutoPencrypt implements IBurpExtender, BurpExtension, IMessageEdito
 
     configurationPane = new JPanel();
     configurationPane.setLayout(new GridBagLayout());
-    configurationPane.setMinimumSize(configurationPaneDimension);
-    configurationPane.setPreferredSize(configurationPaneDimension);
+    configurationPane.setMinimumSize(paneDimension);
+    configurationPane.setPreferredSize(paneDimension);
     c = new GridBagConstraints();
     c.anchor = GridBagConstraints.NORTHWEST;
 
     JPanel toggleButtonPanel = new JPanel();
-    toggleButtonPanel.add(activatedButton);
+    toggleButtonPanel.add(enableButton);
     toggleButtonPanel.add(clearLogButton);
 
     configurationPane.add(toggleButtonPanel, c);
@@ -189,7 +188,7 @@ public class AutoPencrypt implements IBurpExtender, BurpExtension, IMessageEdito
 
     JPanel optionsTabPane = new JPanel();
     optionsTabPane.setLayout(new GridLayout(5, 1));
-    optionsTabPane.add(this.isScopePreButton);
+    optionsTabPane.add(this.inScopeCheckBox);
 
     configurationTabbedPane.add("Configurations", tabbedPane);
     configurationTabbedPane.add("Options", optionsTabPane);
@@ -205,118 +204,118 @@ public class AutoPencrypt implements IBurpExtender, BurpExtension, IMessageEdito
 
     logTable.setAutoCreateRowSorter(true);
     logTable.getColumnModel().getColumn(0).setPreferredWidth(5);
-    logTable.getColumnModel().getColumn(1).setPreferredWidth(20);
-    logTable.getColumnModel().getColumn(2).setPreferredWidth(250);
+    logTable.getColumnModel().getColumn(1).setPreferredWidth(10);
+    logTable.getColumnModel().getColumn(2).setPreferredWidth(200);
     logTable.getColumnModel().getColumn(3).setPreferredWidth(20);
     logTable.getColumnModel().getColumn(4).setPreferredWidth(20);
     logTable.getColumnModel().getColumn(5).setPreferredWidth(20);
 
     JScrollPane logTableScrollPane = new JScrollPane(logTable);
-    logTableScrollPane.setMinimumSize(configurationPaneDimension);
-    logTableScrollPane.setPreferredSize(new Dimension(10000, 10));
+    logTableScrollPane.setMinimumSize(paneDimension);
+    logTableScrollPane.setPreferredSize(paneDimension);
 
-    tabs = new JTabbedPane();
-    tabs.setMinimumSize(new Dimension(10000, 300));
-    tabs.addChangeListener(e -> {
-      switch (tabs.getSelectedIndex()) {
+    viewSplitPane = new JTabbedPane();
+    viewSplitPane.setMinimumSize(paneDimension);
+    viewSplitPane.addChangeListener(e -> {
+      switch (viewSplitPane.getSelectedIndex()) {
         case 0:
-          updateOriginalRequestResponseViewer();
+          updateEncryptedRequestResponseViewer();
           break;
         default:
-          updateModifiedRequestResponseViewer();
+          updateDecryptedRequestResponseViewer();
           break;
       }
     });
 
-    originalRequestViewer = callbacks.createMessageEditor(this, false);
-    originalResponseViewer = callbacks.createMessageEditor(this, false);
-    modifiedRequestViewer = callbacks.createMessageEditor(this, false);
-    modifiedResponseViewer = callbacks.createMessageEditor(this, false);
+    encryptedRequestViewer = callbacks.createMessageEditor(this, false);
+    encryptedResponseViewer = callbacks.createMessageEditor(this, false);
+    decryptedRequestViewer = callbacks.createMessageEditor(this, false);
+    decryptedResponseViewer = callbacks.createMessageEditor(this, false);
 
-    originalRequestLabel = new JLabel("Request");
-    originalResponseLabel = new JLabel("Response");
-    modifiedRequestLabel = new JLabel("Request");
-    modifiedResponseLabel = new JLabel("Response");
+    encryptedRequestLabel = new JLabel("Request");
+    encryptedResponseLabel = new JLabel("Response");
+    decryptedRequestLabel = new JLabel("Request");
+    decryptedResponseLabel = new JLabel("Response");
 
-    originalRequestLabel.setForeground(new Color(0xff6633));
-    originalResponseLabel.setForeground(new Color(0xff6633));
-    modifiedRequestLabel.setForeground(new Color(0xff6633));
-    modifiedResponseLabel.setForeground(new Color(0xff6633));
+    encryptedRequestLabel.setForeground(new Color(0xff6633));
+    encryptedResponseLabel.setForeground(new Color(0xff6633));
+    decryptedRequestLabel.setForeground(new Color(0xff6633));
+    decryptedResponseLabel.setForeground(new Color(0xff6633));
 
-    originalRequestLabel.setFont(defaultFont);
-    originalResponseLabel.setFont(defaultFont);
-    modifiedRequestLabel.setFont(defaultFont);
-    modifiedResponseLabel.setFont(defaultFont);
+    encryptedRequestLabel.setFont(defaultFont);
+    encryptedResponseLabel.setFont(defaultFont);
+    decryptedRequestLabel.setFont(defaultFont);
+    decryptedResponseLabel.setFont(defaultFont);
 
-    originalRequestPanel = new JPanel();
-    originalResponsePanel = new JPanel();
+    encryptedRequestPanel = new JPanel();
+    encryptedResponsePanel = new JPanel();
 
-    modifiedRequestPanel = new JPanel();
-    modifiedResponsePanel = new JPanel();
+    decryptedRequestPanel = new JPanel();
+    decryptedResponsePanel = new JPanel();
 
-    originalRequestPanel.setLayout(new BoxLayout(originalRequestPanel, BoxLayout.PAGE_AXIS));
-    originalResponsePanel.setLayout(new BoxLayout(originalResponsePanel, BoxLayout.PAGE_AXIS));
+    encryptedRequestPanel.setLayout(new BoxLayout(encryptedRequestPanel, BoxLayout.PAGE_AXIS));
+    encryptedResponsePanel.setLayout(new BoxLayout(encryptedResponsePanel, BoxLayout.PAGE_AXIS));
 
-    modifiedRequestPanel.setLayout(new BoxLayout(modifiedRequestPanel, BoxLayout.PAGE_AXIS));
-    modifiedResponsePanel.setLayout(new BoxLayout(modifiedResponsePanel, BoxLayout.PAGE_AXIS));
+    decryptedRequestPanel.setLayout(new BoxLayout(decryptedRequestPanel, BoxLayout.PAGE_AXIS));
+    decryptedResponsePanel.setLayout(new BoxLayout(decryptedResponsePanel, BoxLayout.PAGE_AXIS));
 
-    originalRequestPanel.add(originalRequestLabel);
-    originalRequestPanel.add(originalRequestViewer.getComponent());
-    originalRequestPanel.setPreferredSize(new Dimension(100000, 100000));
+    encryptedRequestPanel.add(encryptedRequestLabel);
+    encryptedRequestPanel.add(encryptedRequestViewer.getComponent());
+    encryptedRequestPanel.setPreferredSize(paneDimension);
 
-    originalResponsePanel.add(originalResponseLabel);
-    originalResponsePanel.add(originalResponseViewer.getComponent());
-    originalResponsePanel.setPreferredSize(new Dimension(100000, 100000));
+    encryptedResponsePanel.add(encryptedResponseLabel);
+    encryptedResponsePanel.add(encryptedResponseViewer.getComponent());
+    encryptedResponsePanel.setPreferredSize(paneDimension);
 
-    modifiedRequestPanel.add(modifiedRequestLabel);
-    modifiedRequestPanel.add(modifiedRequestViewer.getComponent());
-    modifiedRequestPanel.setPreferredSize(new Dimension(100000, 100000));
+    decryptedRequestPanel.add(decryptedRequestLabel);
+    decryptedRequestPanel.add(decryptedRequestViewer.getComponent());
+    decryptedRequestPanel.setPreferredSize(paneDimension);
 
-    modifiedResponsePanel.add(modifiedResponseLabel);
-    modifiedResponsePanel.add(modifiedResponseViewer.getComponent());
-    modifiedResponsePanel.setPreferredSize(new Dimension(100000, 100000));
+    decryptedResponsePanel.add(decryptedResponseLabel);
+    decryptedResponsePanel.add(decryptedResponseViewer.getComponent());
+    decryptedResponsePanel.setPreferredSize(paneDimension);
 
-    originalRequestResponseSplitPane.setLeftComponent(originalRequestPanel);
-    originalRequestResponseSplitPane.setRightComponent(originalResponsePanel);
-    originalRequestResponseSplitPane.setResizeWeight(0.50);
-    tabs.addTab("Encrypted", originalRequestResponseSplitPane);
+    encryptedRequestResponseSplitPane.setLeftComponent(encryptedRequestPanel);
+    encryptedRequestResponseSplitPane.setRightComponent(encryptedResponsePanel);
+    encryptedRequestResponseSplitPane.setResizeWeight(0.5);
+    viewSplitPane.addTab("Encrypted", encryptedRequestResponseSplitPane);
 
-    modifiedRequestResponseSplitPane.setLeftComponent(modifiedRequestPanel);
-    modifiedRequestResponseSplitPane.setRightComponent(modifiedResponsePanel);
-    modifiedRequestResponseSplitPane.setResizeWeight(0.5);
-    tabs.addTab("Decrypted", modifiedRequestResponseSplitPane);
+    decryptedRequestResponseSplitPane.setLeftComponent(decryptedRequestPanel);
+    decryptedRequestResponseSplitPane.setRightComponent(decryptedResponsePanel);
+    decryptedRequestResponseSplitPane.setResizeWeight(0.5);
+    viewSplitPane.addTab("Decrypted", decryptedRequestResponseSplitPane);
 
-    mainSplitPane.setResizeWeight(.00000000000001);
-    mainSplitPane.setBottomComponent(tabs);
+    actionSplitPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT);
 
-    userInterfaceSplitPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT);
+    actionSplitPane.setRightComponent(configurationPane);
+    actionSplitPane.setLeftComponent(logTableScrollPane);
 
-    userInterfaceSplitPane.setRightComponent(configurationPane);
-    userInterfaceSplitPane.setLeftComponent(logTableScrollPane);
-    userInterfaceSplitPane.setResizeWeight(1.0);
+    actionSplitPane.setResizeWeight(0.5);
 
-    mainSplitPane.setTopComponent(userInterfaceSplitPane);
+    mainSplitPane.setResizeWeight(0.5);
+    mainSplitPane.setTopComponent(actionSplitPane);
+    mainSplitPane.setBottomComponent(viewSplitPane);
 
-    originalRequestResponseSplitPane.addPropertyChangeListener(JSplitPane.DIVIDER_LOCATION_PROPERTY,
+    encryptedRequestResponseSplitPane.addPropertyChangeListener(JSplitPane.DIVIDER_LOCATION_PROPERTY,
         pce -> {
-          modifiedRequestResponseSplitPane.setDividerLocation(
-              originalRequestResponseSplitPane.getDividerLocation());
+          decryptedRequestResponseSplitPane.setDividerLocation(
+              encryptedRequestResponseSplitPane.getDividerLocation());
         });
-    modifiedRequestResponseSplitPane.addPropertyChangeListener(JSplitPane.DIVIDER_LOCATION_PROPERTY,
+    decryptedRequestResponseSplitPane.addPropertyChangeListener(JSplitPane.DIVIDER_LOCATION_PROPERTY,
         pce -> {
-          originalRequestResponseSplitPane.setDividerLocation(
-              modifiedRequestResponseSplitPane.getDividerLocation());
+          encryptedRequestResponseSplitPane.setDividerLocation(
+              decryptedRequestResponseSplitPane.getDividerLocation());
         });
 
     callbacks.customizeUiComponent(mainSplitPane);
     callbacks.customizeUiComponent(logTable);
     callbacks.customizeUiComponent(logTableScrollPane);
-    callbacks.customizeUiComponent(tabs);
+    callbacks.customizeUiComponent(viewSplitPane);
   }
 
   public CustomHttpHandler createHandlerWithScript(MontoyaApi api) {
     return new CustomHttpHandler(api, encryptionScript, decryptionScript,
-        activatedButton, tableModel, isScopePreButton, logManager);
+        enableButton, tableModel, inScopeCheckBox, logManager);
   }
 
   private static JPanel createTabPanel(JTextArea script) {
@@ -415,65 +414,65 @@ public class AutoPencrypt implements IBurpExtender, BurpExtension, IMessageEdito
     return callbacks;
   }
 
-  private void updateOriginalRequestResponseViewer() {
+  private void updateEncryptedRequestResponseViewer() {
     SwingUtilities.invokeLater(() -> {
-      if (originalRequest != null) {
-        originalRequestViewer.setMessage(originalRequest, true);
+      if (encryptedRequest != null) {
+        encryptedRequestViewer.setMessage(encryptedRequest, true);
       } else {
-        originalRequestViewer.setMessage(new byte[0], true);
+        encryptedRequestViewer.setMessage(new byte[0], true);
       }
 
-      if (originalResponse != null) {
-        originalResponseViewer.setMessage(originalResponse, false);
+      if (encryptedResponse != null) {
+        encryptedResponseViewer.setMessage(encryptedResponse, false);
       } else {
-        originalResponseViewer.setMessage(new byte[0], false);
+        encryptedResponseViewer.setMessage(new byte[0], false);
       }
     });
   }
 
-  private void updateModifiedRequestResponseViewer() {
+  private void updateDecryptedRequestResponseViewer() {
     SwingUtilities.invokeLater(() -> {
-      if (modifiedRequest != null) {
-        modifiedRequestViewer.setMessage(modifiedRequest, true);
+      if (decryptedRequest != null) {
+        decryptedRequestViewer.setMessage(decryptedRequest, true);
       } else {
-        modifiedRequestViewer.setMessage(new byte[0], true);
+        decryptedRequestViewer.setMessage(new byte[0], true);
       }
 
-      if (modifiedResponse != null) {
-        modifiedResponseViewer.setMessage(modifiedResponse, false);
+      if (decryptedResponse != null) {
+        decryptedResponseViewer.setMessage(decryptedResponse, false);
       } else {
-        modifiedResponseViewer.setMessage(new byte[0], false);
+        decryptedResponseViewer.setMessage(new byte[0], false);
       }
     });
   }
 
   @Override
   public byte[] getRequest() {
-    switch (tabs.getSelectedIndex()) {
+    switch (viewSplitPane.getSelectedIndex()) {
       case 0:
-        return currentOriginalRequest.toByteArray().getBytes();
+        return currentEncryptedRequest.toByteArray().getBytes();
       case 1:
-        return currentModifiedRequest.toByteArray().getBytes();
+        return currentDecryptedRequest.toByteArray().getBytes();
       default:
-        return currentOriginalRequest.toByteArray().getBytes();
+        return currentEncryptedRequest.toByteArray().getBytes();
     }
   }
 
   @Override
   public byte[] getResponse() {
-    switch (tabs.getSelectedIndex()) {
+    switch (viewSplitPane.getSelectedIndex()) {
       case 0:
-        return currentOriginalResponse.toByteArray().getBytes();
+        return currentEncryptedResponse.toByteArray().getBytes();
       case 1:
-        return currentModifiedResponse.toByteArray().getBytes();
+        return currentDecryptedResponse.toByteArray().getBytes();
       default:
-        return currentOriginalResponse.toByteArray().getBytes();
+        return currentEncryptedResponse.toByteArray().getBytes();
     }
   }
 
   @Override
   public IHttpService getHttpService() {
-    switch (tabs.getSelectedIndex()) {
+    switch (viewSplitPane.getSelectedIndex()) {
       case 0:
         return null;
       case 1:
@@ -501,18 +500,19 @@ public class AutoPencrypt implements IBurpExtender, BurpExtension, IMessageEdito
       LogEntry logEntry = logManager.getLogEntry(convertRowIndexToModel(row));
 
       new Thread(() -> {
-        originalRequest = logEntry.getOriginalHttpRequest().toByteArray().getBytes();
-        originalResponse = logEntry.getOriginalHttpResponse().toByteArray().getBytes();
-        modifiedRequest = logEntry.getModifiedHttpRequest().toByteArray().getBytes();
-        modifiedResponse = logEntry.getModifiedHttpResponse().toByteArray().getBytes();
+        encryptedRequest = logEntry.getEncryptedHttpRequest().toByteArray().getBytes();
+        encryptedResponse = logEntry.getEncryptedHttpResponse().toByteArray().getBytes();
+        decryptedRequest = logEntry.getDecryptedHttpRequest().toByteArray().getBytes();
+        decryptedResponse = logEntry.getDecryptedHttpResponse().toByteArray().getBytes();
 
-        currentOriginalRequest = logEntry.getOriginalHttpRequest();
-        currentOriginalResponse = logEntry.getOriginalHttpResponse();
-        currentModifiedRequest = logEntry.getModifiedHttpRequest();
-        currentModifiedResponse = logEntry.getModifiedHttpResponse();
+        currentEncryptedRequest = logEntry.getEncryptedHttpRequest();
+        currentEncryptedResponse = logEntry.getEncryptedHttpResponse();
+        currentDecryptedRequest = logEntry.getDecryptedHttpRequest();
+        currentDecryptedResponse = logEntry.getDecryptedHttpResponse();
 
-        updateOriginalRequestResponseViewer();
-        updateModifiedRequestResponseViewer();
+        updateEncryptedRequestResponseViewer();
+        updateDecryptedRequestResponseViewer();
+
       }).start();
 
     }

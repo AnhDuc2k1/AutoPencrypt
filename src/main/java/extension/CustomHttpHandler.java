@@ -25,36 +25,37 @@ import extension.Logs.LogEntry;
 import extension.Logs.LogManager;
 
 public class CustomHttpHandler implements HttpHandler {
+    
     private MontoyaApi api;
     private JTextArea encryptionScript, decryptionScript;
-    private JToggleButton activateButton;
+    private JToggleButton enableButton;
     private DefaultTableModel tableModel;
     private JCheckBox inScopeCheckBox;
     private LogManager logManager;
 
-    private HttpRequest originalHttpRequest;
-    private HttpResponse originalHttpResponse;
+    private HttpRequest encryptedHttpRequest;
+    private HttpResponse encryptedHttpResponse;
 
-    private HttpRequest modifiedHttpRequest;
-    private HttpResponse modifiedHttpResponse;
+    private HttpRequest decryptedHttpRequest;
+    private HttpResponse decryptedHttpResponse;
 
     public CustomHttpHandler(MontoyaApi api, JTextArea encryptionScript, JTextArea decryptionScript,
-            JToggleButton activateButton, DefaultTableModel tableModel,
+            JToggleButton enableButton, DefaultTableModel tableModel,
             JCheckBox inScopeCheckBox, LogManager logManager) {
         this.api = api;
         this.encryptionScript = encryptionScript;
         this.decryptionScript = decryptionScript;
         this.tableModel = tableModel;
-        this.activateButton = activateButton;
+        this.enableButton = enableButton;
         this.inScopeCheckBox = inScopeCheckBox;
         this.logManager = logManager;
     }
 
     @Override
     public RequestToBeSentAction handleHttpRequestToBeSent(HttpRequestToBeSent requestToBeSent) {
-        if (this.activateButton.isSelected()) {
+        if (this.enableButton.isSelected()) {
             String encryptionScript = this.encryptionScript.getText().trim();
-            this.modifiedHttpRequest = requestToBeSent;
+            this.decryptedHttpRequest = requestToBeSent;
             if (!encryptionScript.isEmpty()) {
                 if (this.inScopeCheckBox.isSelected()) {
                     if (!this.api.scope().isInScope(requestToBeSent.url())) {
@@ -75,11 +76,11 @@ public class CustomHttpHandler implements HttpHandler {
                             String encryptedRequestBody = nodeRuntime.getGlobalObject().get("encrypted_request_body")
                                     .toString();
 
-                            HttpRequest modifiedRequest = requestToBeSent.withBody(encryptedRequestBody);
+                            HttpRequest decryptedRequest = requestToBeSent.withBody(encryptedRequestBody);
 
-                            this.originalHttpRequest = modifiedRequest;
+                            this.encryptedHttpRequest = decryptedRequest;
 
-                            return RequestToBeSentAction.continueWith(modifiedRequest);
+                            return RequestToBeSentAction.continueWith(decryptedRequest);
                         } catch (Exception e) {
                             this.api.logging().logToError(e.getMessage());
                             return RequestToBeSentAction.continueWith(requestToBeSent);
@@ -96,7 +97,7 @@ public class CustomHttpHandler implements HttpHandler {
 
     @Override
     public ResponseReceivedAction handleHttpResponseReceived(HttpResponseReceived responseReceived) {
-        if (this.activateButton.isSelected()) {
+        if (this.enableButton.isSelected()) {
             String decryptionScript = this.decryptionScript.getText().trim();
 
             if (!decryptionScript.isEmpty()) {
@@ -108,35 +109,35 @@ public class CustomHttpHandler implements HttpHandler {
                         nodeRuntime.getExecutor("response_body = JSON.parse(response_body);").executeVoid();
                         nodeRuntime.getExecutor(decryptionScript).executeVoid();
 
-                        this.originalHttpResponse = responseReceived;
+                        this.encryptedHttpResponse = responseReceived;
 
                         try {
                             String decryptedResponseBody = nodeRuntime.getGlobalObject().get("decrypted_response_body")
                                     .toString();
 
-                            HttpResponse modifiedResponse = responseReceived.withBody(decryptedResponseBody);
+                            HttpResponse decryptedResponse = responseReceived.withBody(decryptedResponseBody);
 
-                            this.modifiedHttpResponse = modifiedResponse;
+                            this.decryptedHttpResponse = decryptedResponse;
 
                             if (this.inScopeCheckBox.isSelected()) {
-                                if (this.api.scope().isInScope(this.originalHttpRequest.url())) {
+                                if (this.api.scope().isInScope(this.encryptedHttpRequest.url())) {
                                     LogEntry newLogEntry = new LogEntry(
                                             logManager.getLogTableModel().getLogCount() + 1,
-                                            this.originalHttpRequest, this.originalHttpResponse,
-                                            this.modifiedHttpRequest,
-                                            this.modifiedHttpResponse);
+                                            this.encryptedHttpRequest, this.encryptedHttpResponse,
+                                            this.decryptedHttpRequest,
+                                            this.decryptedHttpResponse);
 
                                     logManager.addEntry(newLogEntry);
-                                    return ResponseReceivedAction.continueWith(modifiedResponse);
+                                    return ResponseReceivedAction.continueWith(decryptedResponse);
                                 }
                             } else if (!this.inScopeCheckBox.isSelected()) {
                                 LogEntry newLogEntry = new LogEntry(
                                         logManager.getLogTableModel().getLogCount() + 1,
-                                        this.originalHttpRequest, this.originalHttpResponse, this.modifiedHttpRequest,
-                                        this.modifiedHttpResponse);
+                                        this.encryptedHttpRequest, this.encryptedHttpResponse, this.decryptedHttpRequest,
+                                        this.decryptedHttpResponse);
 
                                 logManager.addEntry(newLogEntry);
-                                return ResponseReceivedAction.continueWith(modifiedResponse);
+                                return ResponseReceivedAction.continueWith(decryptedResponse);
                             }
                         } catch (Exception e) {
                             this.api.logging().logToError(e.getMessage());

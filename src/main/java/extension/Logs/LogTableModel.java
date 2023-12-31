@@ -88,17 +88,17 @@ public class LogTableModel extends AbstractTableModel {
     LogEntry logEntry = log.get(rowIndex);
     switch (columnIndex) {
       case 0:
-        return logEntry.getRequestResponseId();
+        return logEntry.getRequestId();
       case 1:
-        return logEntry.getModifiedMethod();
+        return logEntry.getRequestMethod();
       case 2:
-        return logEntry.getModifiedURL().toString();
+        return logEntry.getRequestURL().toString();
       case 3:
-        return logEntry.getOriginalResponseStatus();
+        return logEntry.getRequestStatus();
       case 4:
-        return logEntry.getOriginalLength();
+        return logEntry.getEncryptedLength();
       case 5:
-        return logEntry.getModifiedLength();
+        return logEntry.getDecryptedLength();
       default:
         return "";
     }
